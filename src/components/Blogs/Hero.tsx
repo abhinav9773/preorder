@@ -1,0 +1,40 @@
+import React from "react";
+import { MoveUpRight } from "lucide-react";
+
+export default function Hero() {
+  return (
+    <div className="text-black w-full md:h-screen">
+      <div className="relative w-full h-[30vh] md:h-[85vh] overflow-hidden rounded-3xl md:px-10 md:py-16">
+        {/* Background image with overlay */}
+        <div className="absolute inset-0 bg-[url('/blogs/blogs-hero.jpeg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-black bg-opacity-40" />
+
+        {/* Content */}
+        <div className="relative z-10 p-6 md:p-10 flex justify-end h-full flex-col">
+          <h1 className="text-4xl md:text-6xl lg:text-8xl text-left text-white font-borela">
+            OUR <br className="md:hidden block" />
+            BLOGS
+          </h1>
+          <div className="md:hidden block relative mt-4">
+            <button
+              type="submit"
+              className="font-montserrat font-semibold text-sm w-fit px-4 py-2 bg-background text-white rounded-full hover:bg-gray-700 transition-colors flex flex-row justify-between pl-4 gap-x-5 pr-2 items-center gap-2"
+            >
+              SUBSCRIBE NOW
+              <MoveUpRight className="w-6 text-background h-6 bg-primary rounded-full p-1" />
+            </button>
+          </div>
+          <div className="h-full hidden md:flex mt-5 justify-between">
+            <div className="w-3/4 lg:w-1/2 text-left">
+              <p className="text-white text-2xl">
+                Explore expert advice, latest trends, and innovative solutions
+                to keep your furry friends happy and healthy.{" "}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div></div>
+    </div>
+  );
+}

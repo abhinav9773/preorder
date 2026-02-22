@@ -1,0 +1,9 @@
+{
+  "note": "Add this to your dependencies in package.json",
+  "dependencies": {
+    "mongodb": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/mongodb": "^4.0.7"
+  }
+}
