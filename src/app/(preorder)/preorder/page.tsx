@@ -1,14 +1,16 @@
 "use client";
+// src/app/(preorder)/preorder/page.tsx
 
-import { useState, useCallback, useEffect } from "react";
-
+import { useState, useEffect, useCallback } from "react";
 import {
-  SEED_FOUNDERS,
-  PET_EMOJIS,
-  TOTAL_SLOTS,
-  Founder,
-  PreorderFormData,
-} from "@/lib/preorderData";
+  fetchActivity,
+  fetchCohorts,
+  fetchSpotsStatus,
+  ActivityEntry,
+  CohortsData,
+  SpotsStatus,
+  timeAgo,
+} from "@/lib/api";
 
 import ActivityBar from "@/components/Preorder/ActivityBar";
 import Hero from "@/components/Preorder/Hero";
@@ -16,7 +18,6 @@ import TickerStrip from "@/components/Preorder/TickerStrip";
 import PerksSection from "@/components/Preorder/PerksSection";
 import PreorderModal from "@/components/Preorder/PreorderModal";
 import { SuccessModal, Confetti } from "@/components/Preorder/SuccessModal";
-
 import {
   SavingsSection,
   PetWall,
@@ -27,91 +28,105 @@ import {
   FinalCTA,
 } from "@/components/Preorder/Sections";
 
+// Shape of result coming back from PreorderModal after payment
+interface PaymentResult {
+  petName: string;
+  ownerName: string;
+  cohortNumber: number;
+  cohortPosition: number;
+  referralCode: string;
+}
+
+const POLL_MS = 30_000; // refresh live data every 30 seconds
+
 export default function PreorderPage() {
-  /* ───────────────────────── STATE ───────────────────────── */
+  // ── Live data from backend ─────────────────────────────────
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [cohorts, setCohorts] = useState<CohortsData>({
+    "cohort 1": [],
+    "cohort 2": [],
+  });
+  const [spots, setSpots] = useState<SpotsStatus>({
+    currentCohortNumber: 1,
+    claimed: 0,
+    total: 20,
+    remaining: 20,
+    totalPaidOverall: 0,
+    lastClaimedAt: "",
+  });
 
-  const [mounted, setMounted] = useState(false);
-
-  const [founders, setFounders] = useState<Founder[]>(SEED_FOUNDERS);
+  // ── UI state ───────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
   const [succOpen, setSuccOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState<Founder | null>(null);
-  const [popIdx, setPopIdx] = useState(-1);
+  const [result, setResult] = useState<PaymentResult | null>(null);
   const [confetti, setConfetti] = useState(false);
   const [teaserPet, setTeaserPet] = useState("");
-  const [lastClaimed, setLastClaimed] = useState("47 mins ago");
-
-  /* Scroll behaviour */
   const [showNav, setShowNav] = useState(true);
-  const [lastScroll, setLastScroll] = useState(0);
 
-  const claimed = founders.length;
-  const remaining = TOTAL_SLOTS - claimed;
-
-  /* ───────────────────────── EFFECTS ───────────────────────── */
-
-  // Hydration safety
-  useEffect(() => {
-    setMounted(true);
+  // ── Fetch all live data ────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    const [act, coh, sp] = await Promise.all([
+      fetchActivity(20),
+      fetchCohorts(),
+      fetchSpotsStatus(),
+    ]);
+    setActivity(act);
+    setCohorts(coh);
+    setSpots(sp);
   }, []);
 
-  // Scroll direction detection
+  // Initial fetch + poll every 30s
   useEffect(() => {
-    const handleScroll = () => {
-      const current = window.scrollY;
+    loadAll();
+    const id = setInterval(loadAll, POLL_MS);
+    return () => clearInterval(id);
+  }, [loadAll]);
 
-      if (current > lastScroll && current > 100) {
-        // Scrolling DOWN → hide navbar
+  // ── Handle scroll to show/hide navbar ───────────────────
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY) {
+        // Scrolling down → hide
         setShowNav(false);
       } else {
-        // Scrolling UP → show navbar
+        // Scrolling up → show
         setShowNav(true);
       }
 
-      setLastScroll(current);
+      lastScrollY = currentScrollY;
     };
 
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScroll]);
-
-  /* ───────────────────────── HANDLERS ───────────────────────── */
-
-  const handleSuccess = useCallback((data: PreorderFormData) => {
-    const emoji = PET_EMOJIS[Math.floor(Math.random() * PET_EMOJIS.length)];
-
-    const entry: Founder = {
-      name: data.owner,
-      pet: data.pet,
-      breed: data.breed,
-      city: data.city || "India",
-      emoji,
-      rank: data.rank,
-      time: "just now",
-    };
-
-    setFounders((prev) => [...prev, entry]);
-    setNewEntry(entry);
-    setPopIdx(data.rank - 1);
-    setLastClaimed("just now");
-
-    setModalOpen(false);
-    setSuccOpen(true);
-    setConfetti(true);
-
-    setTimeout(() => setPopIdx(-1), 700);
-    setTimeout(() => setConfetti(false), 5500);
   }, []);
 
-  const openModal = () => setModalOpen(true);
+  // ── After successful payment ───────────────────────────────
+  const handleSuccess = useCallback(
+    async (data: PaymentResult) => {
+      setResult(data);
+      setModalOpen(false);
+      setSuccOpen(true);
+      setConfetti(true);
+      setTimeout(() => setConfetti(false), 5500);
 
-  if (!mounted) return null;
+      // Re-fetch immediately so wall + activity update right away
+      await loadAll();
+    },
+    [loadAll],
+  );
 
-  /* ───────────────────────── RENDER ───────────────────────── */
+  // Derive display values from spots
+  const lastClaimed = spots.lastClaimedAt
+    ? timeAgo(spots.lastClaimedAt)
+    : "recently";
 
   return (
-    <div className="bg-[#080808] text-white min-h-screen overflow-x-hidden pt-[50px]">
-      {/* CONFETTI */}
+    <div className="bg-[#080808] text-white min-h-screen overflow-x-hidden">
       <Confetti show={confetti} />
 
       {/* NAVBAR */}
@@ -132,11 +147,11 @@ export default function PreorderPage() {
           <div className="flex items-center gap-5">
             <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-[#FF6600] uppercase tracking-wide">
               <span className="w-[7px] h-[7px] bg-[#FF6600] rounded-full animate-pulse" />
-              {remaining} spots remaining
+              {spots.remaining} spots remaining
             </div>
 
             <button
-              onClick={openModal}
+              onClick={() => setModalOpen(true)}
               className="bg-[#FF6600] text-[#080808] font-bold text-[13px] uppercase tracking-wide px-7 py-3 rounded-full transition hover:scale-105"
             >
               Claim Your Spot
@@ -145,53 +160,56 @@ export default function PreorderPage() {
         </div>
       </div>
 
-      {/* ACTIVITY BAR */}
-      <div
-        className={`
-          fixed left-0 right-0 z-40
-          transition-all duration-300
-          ${showNav ? "top-[72px]" : "top-0"}
-        `}
-      >
-        <ActivityBar founders={founders} />
-      </div>
+      {/* ── Activity bar ─────────────────────────────────── */}
+      <ActivityBar activity={activity} />
 
-      {/* HERO */}
+      {/* ── Hero ─────────────────────────────────────────── */}
       <Hero
-        claimed={claimed}
-        popIdx={popIdx}
+        claimed={spots.claimed}
+        total={spots.total}
         lastClaimed={lastClaimed}
         teaserPet={teaserPet}
         onTeaserChange={setTeaserPet}
-        onClaim={openModal}
+        onClaim={() => setModalOpen(true)}
       />
 
-      {/* SECTIONS */}
       <TickerStrip />
       <PerksSection />
       <SavingsSection />
-      <PetWall founders={founders} />
-      <FeedSection founders={founders} onClaim={openModal} />
+
+      {/* ── Pet Wall (cohort data from /cohorts) ─────────── */}
+      <PetWall cohorts={cohorts} />
+
+      {/* ── Live feed (activity from /activity/live) ──────── */}
+      <FeedSection activity={activity} onClaim={() => setModalOpen(true)} />
+
       <StepsSection />
       <PledgeSection />
       <FaqSection />
-      <FinalCTA remaining={remaining} onClaim={openModal} />
+      <FinalCTA
+        remaining={spots.remaining}
+        onClaim={() => setModalOpen(true)}
+      />
 
-      {/* MODALS */}
+      {/* ── Modals ───────────────────────────────────────── */}
       <PreorderModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSuccess={handleSuccess}
-        claimed={claimed}
         seedPet={teaserPet}
       />
 
-      <SuccessModal
-        open={succOpen}
-        onClose={() => setSuccOpen(false)}
-        rank={newEntry?.rank ?? 1}
-        petName={newEntry?.pet ?? ""}
-      />
+      {result && (
+        <SuccessModal
+          open={succOpen}
+          onClose={() => setSuccOpen(false)}
+          petName={result.petName}
+          ownerName={result.ownerName}
+          cohortNumber={result.cohortNumber}
+          cohortPosition={result.cohortPosition}
+          referralCode={result.referralCode}
+        />
+      )}
     </div>
   );
 }
