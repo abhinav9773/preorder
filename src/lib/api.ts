@@ -95,6 +95,7 @@ export async function confirmPayment(payload: {
   submissionId: string;
   razorpay_payment_id: string;
   razorpay_order_id?: string;
+  razorpay_signature: string; 
 }): Promise<PaymentSuccessResponse> {
   const res = await fetch(`${BASE}/payment/success`, {
     method: "POST",
