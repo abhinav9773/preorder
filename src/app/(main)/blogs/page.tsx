@@ -14,55 +14,61 @@ import { MoveUpRight } from "lucide-react";
 import Newsletter from "@/components/Newsletter/Newsletter";
 import { BlogData } from "@/types/blog";
 import Hero from "@/components/Blogs/Hero";
+import { MongoClient } from "mongodb";
+
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Blogs",
   description:
     "Stay informed with pet care tips, product updates, and innovations in smart pet tech from MyPerro.",
 };
 
+const uri = process.env.MONGODB_URI!;
+const dbName = process.env.MONGODB_DB_NAME!;
+
+let cachedClient: MongoClient | null = null;
+
+async function connectToDatabase() {
+  if (cachedClient) return cachedClient;
+
+  const client = new MongoClient(uri);
+  await client.connect();
+  cachedClient = client;
+  return client;
+}
+
 const Blogs = async () => {
-  const blogs: BlogData[] = [];
-  try {
-    const baseUrl =
-      process.env.API_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000");
+  const client = await connectToDatabase();
+  const db = client.db(dbName);
 
-    const res = await fetch(`${baseUrl}/api/blog`);
+  const rawBlogs = await db
+    .collection("blogsData")
+    .find()
+    .sort({ createdAt: -1 })
+    .toArray();
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch blogs: ${res.status}`);
-    }
-
-    const rawBlogs = await res.json();
-
-    const processedBlogs: BlogData[] = rawBlogs.map((entry: any) => {
-      const data = entry.blogData || entry;
-
-      return {
-        id: data.id || entry.id,
-        metadata: data.metadata,
-        title: data.title,
-        author: data.author,
-        authorPosition: data.authorPosition,
-        backgroundImage: data.backgroundImage,
-        content: data.content,
-      };
-    });
-
-    blogs.push(...processedBlogs);
-  } catch (error) {
-    console.error("Error fetching blogs:", error);
-  }
-
-  if (blogs.length === 0) {
+  if (!rawBlogs || rawBlogs.length === 0) {
     return (
       <div className="text-black p-8 min-h-screen flex items-center justify-center">
         <p className="text-xl">No blogs found. Please check back later.</p>
       </div>
     );
   }
+
+  const blogs: BlogData[] = rawBlogs.map((entry: any) => {
+    const data = entry.blogData || entry;
+
+    return {
+      id: data.id || entry.id,
+      metadata: data.metadata,
+      title: data.title,
+      author: data.author,
+      authorPosition: data.authorPosition,
+      backgroundImage: data.backgroundImage,
+      content: data.content,
+    };
+  });
 
   const [featured, ...otherBlogs] = blogs;
 
@@ -79,7 +85,6 @@ const Blogs = async () => {
         <p className="md:hidden block">RECENTLY ADDED</p>
       </h1>
 
-      {/* FEATURED BLOG SECTION */}
       <div className="relative w-full mt-12 rounded-3xl overflow-hidden">
         <Image
           src={featured.backgroundImage}
@@ -88,7 +93,6 @@ const Blogs = async () => {
           alt="Blog's Background Image"
           className="h-[14rem] md:h-[40rem] w-full object-cover filter blur-sm brightness-75"
         />
-        {/* Dark overlay */}
         <div className="absolute inset-0 bg-black opacity-40 rounded-3xl"></div>
 
         <div className="absolute inset-0 flex flex-col justify-end text-left p-4 md:p-8 md:py-14 rounded-3xl bg-gradient-to-t from-black/50 to-transparent">
@@ -122,7 +126,6 @@ const Blogs = async () => {
         </div>
       </div>
 
-      {/* DESKTOP GRID FOR OTHER BLOGS */}
       <div className="md:grid grid-cols-1 md:grid-cols-2 gap-32 mt-12 hidden">
         {otherBlogs.map((blog, index) => (
           <BlogCard
@@ -139,7 +142,6 @@ const Blogs = async () => {
         ))}
       </div>
 
-      {/* MOBILE CAROUSEL FOR OTHER BLOGS */}
       <div className="md:hidden w-full mt-12">
         <Carousel className="w-full">
           <CarouselNext />

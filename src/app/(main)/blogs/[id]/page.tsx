@@ -5,36 +5,48 @@ import { BlogData } from "@/types/blog";
 import Newsletter from "@/components/Newsletter/Newsletter";
 import Companies from "@/components/Companies/Companies";
 import { ArrowLeft } from "lucide-react";
+import { MongoClient } from "mongodb";
+
+export const dynamic = "force-dynamic";
+
+const uri = process.env.MONGODB_URI!;
+const dbName = process.env.MONGODB_DB_NAME!;
+
+let cachedClient: MongoClient | null = null;
+
+async function connectToDatabase() {
+  if (cachedClient) return cachedClient;
+
+  const client = new MongoClient(uri);
+  await client.connect();
+  cachedClient = client;
+  return client;
+}
 
 export default async function BlogPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const awaitedParams = await params;
+  const { id } = await params;
 
-  const baseUrl =
-    process.env.API_URL ||
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
+  const client = await connectToDatabase();
+  const db = client.db(dbName);
 
-  const res = await fetch(`${baseUrl}/api/blog/${awaitedParams.id}`);
-  if (!res.ok) return notFound();
+  const blogDoc = await db.collection("blogsData").findOne({ id });
 
-  const data = await res.json();
-  const blog: BlogData = data.blogData;
+  if (!blogDoc) return notFound();
+
+  const blog: BlogData = blogDoc.blogData;
 
   return (
     <div className="w-full max-w-[85vw] mx-auto min-h-screen">
-      {/* Floating back button */}
       <Link href="/blogs">
         <button className="fixed bottom-8 right-8 z-40 bg-primary hover:bg-orange-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center">
           <ArrowLeft className="w-6 h-6" />
         </button>
       </Link>
 
-      {/* Hero section with background */}
       <div className="relative w-full h-[400px] md:h-[500px] overflow-hidden rounded-3xl mt-10 md:mt-15">
         <Image
           src={blog.backgroundImage}
@@ -46,7 +58,6 @@ export default async function BlogPage({
         />
         <div className="absolute inset-0 bg-black bg-opacity-40" />
 
-        {/* Content overlay */}
         <div className="absolute inset-0 flex flex-col justify-end text-left p-4 md:p-8 rounded-3xl bg-gradient-to-t from-black/60 to-transparent">
           <h1 className="text-white text-3xl md:text-6xl font-borela font-semibold mb-4">
             {blog.title}
@@ -60,9 +71,7 @@ export default async function BlogPage({
         </div>
       </div>
 
-      {/* Content container */}
       <div className="relative flex flex-col bg-white rounded-3xl shadow-md p-6 md:p-12 mt-8 mb-16">
-        {/* Content sections */}
         {blog.content.map((section, sectionIndex) => (
           <div key={sectionIndex} className="mb-8">
             {section.map((block, blockIndex) => {
