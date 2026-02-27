@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const borela = localFont({
+const borela = localFont({
   src: [
     {
       path: "../fonts/borela/BORELA.ttf",
@@ -68,7 +68,7 @@ export const borela = localFont({
   variable: "--borela",
 });
 
-export const mombay = localFont({
+const mombay = localFont({
   src: [
     {
       path: "../fonts/mombay/Thorce.ttf",
@@ -78,7 +78,7 @@ export const mombay = localFont({
   variable: "--mombay",
 });
 
-export const montserrat = localFont({
+const montserrat = localFont({
   src: [
     {
       path: "../fonts/Montserrat/static/Montserrat-Thin.ttf",
@@ -176,9 +176,9 @@ export const montserrat = localFont({
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="en"
