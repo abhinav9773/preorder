@@ -196,11 +196,14 @@ export default function PreorderModal({
               // ── STEP 4: Confirm payment ─────────────────
               setPayState("verifying");
 
-              const confirmation = await confirmPayment({
-                submissionId,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-              });
+              console.log("Razorpay SUCCESS response:", response);
+
+            const confirmation = await confirmPayment({
+            submissionId,
+  razorpay_payment_id: response.razorpay_payment_id,
+  razorpay_order_id: response.razorpay_order_id,
+  razorpay_signature: response.razorpay_signature, // 🔥 ADD THIS
+});
 
               onSuccess({
                 petName: dogsname,
