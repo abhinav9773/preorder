@@ -193,7 +193,7 @@ export default function PreorderModal({
       }
 
       const submitRes: any = await submitOrder(formData);
-      const submissionId = submitRes?.data?.data_id;
+      const submissionId = submitRes?.data?._id ?? submitRes?.data?.data_id;
       if (!submissionId) {
         throw new Error("Submission ID missing from /submit response.");
       }
