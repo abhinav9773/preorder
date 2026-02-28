@@ -194,7 +194,7 @@ export default function PreorderModal({
         }
         const rzp = new (window as any).Razorpay({
           key: razorpayKey,
-          amount: 50000,
+          amount: 100,
           currency: "INR",
           name: "MyPerro",
           description: "Founding Pack — ₹500 token",
