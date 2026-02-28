@@ -193,17 +193,29 @@ export default function PreorderModal({
           },
 
         handler: async (response: any) => {
-  console.log("Payment successful on frontend:", response);
-
   setPayState("verifying");
 
-  // Let webhook handle backend verification
+  const res = await fetch("/api/payment/success", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      submissionId,
+      razorpay_payment_id: response.razorpay_payment_id,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Verification failed");
+  }
+
   onSuccess({
     petName: dogsname,
     ownerName: name,
-    cohortNumber: 0,
-    cohortPosition: 0,
-    referralCode: "",
+    cohortNumber: data.data.cohortNumber,
+    cohortPosition: data.data.cohortPosition,
+    referralCode: data.data.referralCode,
   });
 
   resolve();
