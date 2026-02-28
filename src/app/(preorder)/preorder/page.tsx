@@ -126,7 +126,7 @@ export default function PreorderPage() {
     : "recently";
 
   return (
-    <div className="bg-[#080808] text-white min-h-screen overflow-x-hidden">
+    <div className="bg-[#080808] text-white min-h-screen overflow-x-hidden pt-[72px]">
       <Confetti show={confetti} />
 
       {/* NAVBAR */}
