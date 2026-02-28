@@ -10,7 +10,6 @@ import {
 } from "@/lib/preorderData";
 import {
   submitOrder,
-  createPreorderOrder,
   confirmPayment,
   validateReferralCode,
 } from "@/lib/api";
@@ -194,28 +193,14 @@ export default function PreorderModal({
       }
 
       const submitRes: any = await submitOrder(formData);
-      const submissionId =
-        submitRes?.data?.data?._id ?? submitRes?.data?._id;
+      const submissionId = submitRes?.data?.data_id;
       if (!submissionId) {
         throw new Error("Submission ID missing from /submit response.");
       }
 
-      // ── STEP 2: Create Razorpay order from backend ─────────
-      const orderData = await createPreorderOrder({
-        submissionId,
-        owner: name,
-        pet: dogsname,
-        email: mail,
-        phone: phoneno,
-        city,
-        colour,
-        source,
-        rank: 1,
-        referralCode: hasReferral && refStatus === "ok" ? refCode.trim().toUpperCase() : "",
-      });
-
-      if (!orderData.keyId) {
-        throw new Error("Payment key not received");
+      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      if (!razorpayKey) {
+        throw new Error("Razorpay key is missing in frontend env.");
       }
 
       setPayState("paying");
@@ -228,10 +213,9 @@ export default function PreorderModal({
         }
 
         const rzp = new (window as any).Razorpay({
-          key: orderData.keyId,
-          amount: orderData.amount,
-          currency: orderData.currency,
-          order_id: orderData.orderId,
+          key: razorpayKey,
+          amount: 100,
+          currency: "INR",
 
           name: "MyPerro",
           description: "Founding Pack — ₹500 token",

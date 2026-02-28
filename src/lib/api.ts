@@ -33,27 +33,6 @@ export interface PaymentSuccessResponse {
   };
 }
 
-export interface CreateOrderPayload {
-  submissionId: string;
-  owner: string;
-  pet: string;
-  email: string;
-  phone: string;
-  breed?: string;
-  city?: string;
-  colour?: string;
-  source?: string;
-  rank?: number;
-  referralCode?: string;
-}
-
-export interface CreateOrderResponse {
-  orderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
-}
-
 export interface ActivityEntry {
   dogName: string;
   parentName: string;
@@ -121,23 +100,7 @@ export async function submitOrder(formData: FormData): Promise<SubmitResponse> {
   return res.json();
 }
 
-// ── 2. POST /preorder (create Razorpay order) ─────────────────
-export async function createPreorderOrder(
-  payload: CreateOrderPayload,
-): Promise<CreateOrderResponse> {
-  const res = await fetch(`${BASE}/preorder`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.message || "Failed to create payment order");
-  }
-  return res.json();
-}
-
-// ── 3. POST /payment/success ──────────────────────────────────
+// ── 2. POST /payment/success ──────────────────────────────────
 export async function confirmPayment(payload: {
   submissionId: string;
   razorpay_payment_id: string;
