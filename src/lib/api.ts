@@ -4,10 +4,9 @@
 // Set NEXT_PUBLIC_BACKEND_URL in .env.local
 // ─────────────────────────────────────────────────────────────
 
-const BASE = (
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  "https://myperro-website-backend.onrender.com"
-).replace(/\/+$/, "");
+import { getBackendBaseUrl } from "@/lib/backend";
+
+const BASE = getBackendBaseUrl();
 
 // ── Response types (matching his exact shapes) ────────────────
 
