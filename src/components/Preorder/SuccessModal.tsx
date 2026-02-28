@@ -58,7 +58,16 @@ export function SuccessModal({
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  const url = "https://myperro.in/preorder";
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://myperro.in";
+  const params = new URLSearchParams({
+    pet: petName,
+    owner: ownerName,
+    cohort: String(cohortNumber),
+    position: String(cohortPosition),
+    code: referralCode,
+  });
+  const url = `${origin}/preorder/success?${params.toString()}`;
   const shareMsg = `🐾 ${petName} and I just joined MyPerro's Founding Pack — Cohort ${cohortNumber}, Spot #${cohortPosition}! India's first GPS pet collar. Use my referral code ${referralCode} when you sign up: ${url}`;
 
   const copyCode = () => {
