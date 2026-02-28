@@ -1,39 +1,257 @@
 "use client";
 // src/components/Preorder/PerksSection.tsx
 
-import { PERKS } from "@/lib/preorderData";
-
 export default function PerksSection() {
+  const highlights = [
+    "Founding member price locked permanently",
+    "Priority dispatch — first collars leave our workshop first",
+    "Direct access to the product team via a private channel",
+    "Your dog's name on the Founding Wall",
+  ];
+
+  const perks = [
+    {
+      n: "PERK 01",
+      title: "Geo-fence Intelligence",
+      desc: "Define safe zones on a map. Get alerted the moment your dog crosses them — before they're out of sight.",
+    },
+    {
+      n: "PERK 02",
+      title: "Activity Insights",
+      desc: "Track walks, rest, play. Know if your dog is getting enough movement, or sleeping more than usual.",
+    },
+    {
+      n: "PERK 03",
+      title: "Shape the Product",
+      desc: "Founding members have a voice. Your feedback directly influences features in version 2 and beyond.",
+    },
+  ];
+
+  const specs = [
+    ["GPS Technology", "Multi-band GPS + BLE"],
+    ["Battery Life", "Up to 7 days"],
+    ["Water Resistance", "IP67"],
+    ["Connectivity", "4G LTE + WiFi"],
+  ];
+
   return (
-    <section className="py-20 px-6 bg-[#111]">
-      <div className="max-w-[1100px] mx-auto">
-        <div className="text-center max-w-[600px] mx-auto mb-14">
-          <p className="text-[11px] font-bold tracking-[3px] uppercase text-[#FF6600] mb-4">What Your ₹500 Unlocks</p>
-          <h2 className="font-bebas leading-[0.95] mb-5" style={{ fontSize: "clamp(38px,6vw,72px)" }}>
-            THE FOUNDING PACK VAULT
-          </h2>
-          <p className="text-[15px] text-white/50 leading-[1.8] font-light">
-            Founding members don&apos;t just get a collar. They get perks worth over ₹8,500 — some of which can never be bought later, at any price.
+    <>
+      {/* ── 001 Product ─────────────────────────────────── */}
+      <section
+        id="collar"
+        className="bg-[#0a0a0a] py-20 sm:py-28 px-6 sm:px-10 md:px-20"
+      >
+        <div className="max-w-[1100px] mx-auto">
+          <p className="text-[10px] font-semibold tracking-[4px] uppercase text-white/20 mb-6 sm:mb-8">
+            001 — Product
           </p>
-          <div className="flex items-baseline gap-3 mt-6 justify-center flex-wrap">
-            <span className="text-[15px] text-white/25 line-through">₹7,000</span>
-            <span className="font-bebas text-[68px] text-[#FF6600] leading-none">₹5,000</span>
-            <span className="text-sm text-white/45">+ 6 months free subscription</span>
+          <h2
+            className="font-playfair font-normal text-white leading-[1.08] mb-14 sm:mb-20"
+            style={{ fontSize: "clamp(32px, 4.5vw, 64px)" }}
+          >
+            Engineered for
+            <br />
+            the ones you love.
+          </h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+            {/* Map image */}
+            <div className="aspect-[4/3] bg-[#111] border border-white/[0.05] rounded-2xl overflow-hidden relative">
+              <img
+                src="/map.jpg"
+                alt="GPS Map"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/60 to-transparent" />
+            </div>
+
+            {/* Right: text + specs */}
+            <div>
+              <h3
+                className="font-playfair font-normal text-white leading-[1.15] mb-5"
+                style={{ fontSize: "clamp(22px, 2.5vw, 34px)" }}
+              >
+                Built for India.
+                <br />
+                Designed for life.
+              </h3>
+              <p className="text-[14px] sm:text-[15px] text-white/40 font-light leading-[1.9] mb-4">
+                A precision GPS collar that knows when your dog wanders too far,
+                sends you an alert before you notice they're gone, and maps
+                every walk with quiet intelligence.
+              </p>
+              <p className="text-[13px] text-white/22 font-light mb-8 sm:mb-10">
+                No subscription lock-in. No bloated app. Just clarity.
+              </p>
+
+              {/* Specs */}
+              <div className="flex flex-col">
+                {specs.map(([label, value], i) => (
+                  <div
+                    key={label}
+                    className={`flex justify-between items-center py-4 ${i < specs.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                  >
+                    <span className="text-[13px] text-white/25 font-light">
+                      {label}
+                    </span>
+                    <span className="text-[12px] sm:text-[13px] text-white/65 font-light text-right ml-4">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[2px]">
-          {PERKS.map(p => (
-            <div key={p.name} className="po-perk-card bg-[#161616] p-8">
-              <span className="text-[30px] mb-4 block">{p.ico}</span>
-              <div className="font-bold text-[15px] mb-2 leading-[1.3]">{p.name}</div>
-              <div className="text-[13px] text-white/45 leading-[1.7]">{p.desc}</div>
-              <span className="inline-block mt-3 bg-[rgba(255,102,0,0.1)] border border-[rgba(255,102,0,0.28)] text-[#FF6600] text-[11px] font-bold tracking-wide px-[10px] py-[3px] rounded-full">
-                {p.tag}
-              </span>
+      </section>
+
+      {/* ── 002 Founding Perks ──────────────────────────── */}
+      <section
+        id="perks"
+        className="bg-[#0a0a0a] py-20 sm:py-28 px-6 sm:px-10 md:px-20 border-t border-white/[0.04]"
+      >
+        <div className="max-w-[1100px] mx-auto">
+          <p className="text-[10px] font-semibold tracking-[4px] uppercase text-white/20 mb-6 sm:mb-8">
+            002 — Founding Perks
+          </p>
+          <h2
+            className="font-playfair font-normal text-white leading-[1.08] mb-12 sm:mb-16"
+            style={{ fontSize: "clamp(32px, 4.5vw, 64px)" }}
+          >
+            Not a discount.
+            <br />
+            An invitation.
+          </h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            {/* Left — pricing card */}
+            <div className="bg-[#111] rounded-2xl p-8 sm:p-10 flex flex-col justify-between">
+              <div>
+                <p className="text-[13px] text-white/20 line-through tracking-widest mb-3">
+                  ₹8,999 RETAIL
+                </p>
+                <div className="flex items-baseline gap-1 mb-3">
+                  <span className="font-playfair text-white/80 text-[26px] sm:text-[28px]">
+                    ₹
+                  </span>
+                  <span
+                    className="font-playfair font-normal text-white leading-none"
+                    style={{ fontSize: "clamp(56px, 7vw, 96px)" }}
+                  >
+                    4,999
+                  </span>
+                </div>
+                <p
+                  className="text-[14px] text-[#E8622A] font-light font-playfair mb-5 sm:mb-6"
+                  style={{ fontStyle: "italic" }}
+                >
+                  You save ₹3,000 — forever.
+                </p>
+                <p className="text-[13px] text-white/35 font-light leading-[1.85] mb-7 sm:mb-8">
+                  Founding members lock in the lowest price MyPerro will ever be
+                  offered. As the product evolves, your price stays unchanged.
+                </p>
+              </div>
+              <ul className="flex flex-col gap-3">
+                {highlights.map((line) => (
+                  <li
+                    key={line}
+                    className="flex items-start gap-3 text-[13px] text-white/50 font-light"
+                  >
+                    <span className="w-[6px] h-[6px] rounded-full bg-[#E8622A] shrink-0 mt-[6px]" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
+
+            {/* Right — perk cards */}
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {perks.map((p) => (
+                <div key={p.n} className="bg-[#111] rounded-2xl p-7 sm:p-8">
+                  <p className="text-[10px] font-semibold tracking-[3px] uppercase text-[#E8622A] mb-4">
+                    {p.n}
+                  </p>
+                  <h4
+                    className="font-playfair font-normal text-white mb-3 leading-[1.2]"
+                    style={{ fontSize: "clamp(17px, 1.8vw, 22px)" }}
+                  >
+                    {p.title}
+                  </h4>
+                  <p className="text-[13px] text-white/35 font-light leading-[1.8]">
+                    {p.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* ── 003 Stats ───────────────────────────────────── */}
+      <section className="bg-[#0a0a0a] py-20 sm:py-28 px-6 sm:px-10 md:px-20 border-t border-white/[0.04]">
+        <div className="max-w-[1100px] mx-auto">
+          <p className="text-[10px] font-semibold tracking-[4px] uppercase text-white/20 mb-6 sm:mb-8">
+            003 — Traction
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 mb-16 sm:mb-20">
+            <h2
+              className="font-playfair font-normal text-white leading-[1.1]"
+              style={{ fontSize: "clamp(32px, 4.5vw, 60px)" }}
+            >
+              Numbers
+              <br />
+              don't lie.
+            </h2>
+            <p className="text-[14px] sm:text-[15px] text-white/35 font-light leading-[1.9] md:self-end md:pb-1">
+              Before the first collar shipped, India's dog-parent community
+              found us. That validation is the reason the Founding Pack exists.
+            </p>
+          </div>
+
+          {/* Stats — 2 col on mobile, 4 col on desktop */}
+          <div className="grid grid-cols-2 md:grid-cols-4">
+            {[
+              {
+                num: "97",
+                suffix: "%",
+                label: "waitlist satisfaction in\nearly surveys",
+              },
+              { num: "86", suffix: "+", label: "pre-registered pet\nparents" },
+              { num: "22", suffix: "+", label: "cities across\nIndia" },
+              {
+                num: "100",
+                suffix: "+",
+                label: "vet and trainer\nconversations",
+              },
+            ].map((s, i) => (
+              <div
+                key={s.label}
+                className={`py-8 sm:py-10 px-4 sm:px-8 ${i % 2 !== 0 || i > 0 ? "border-l border-white/[0.05]" : ""} ${i >= 2 ? "border-t border-white/[0.05] md:border-t-0" : ""} ${i > 0 && i < 2 ? "" : ""}`}
+              >
+                <div className="flex items-start gap-0 mb-3 sm:mb-4">
+                  <span
+                    className="font-playfair font-normal text-white leading-none"
+                    style={{ fontSize: "clamp(36px, 5vw, 64px)" }}
+                  >
+                    {s.num}
+                  </span>
+                  <span
+                    className="font-playfair text-[#E8622A] leading-none mt-1"
+                    style={{ fontSize: "clamp(22px, 3vw, 40px)" }}
+                  >
+                    {s.suffix}
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-[12px] text-white/25 font-light leading-[1.7] whitespace-pre-line">
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

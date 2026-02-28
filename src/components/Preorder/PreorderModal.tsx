@@ -3,16 +3,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
-import {
-  DOG_BREEDS,
-  COLLAR_COLOURS,
-  REFERRAL_SOURCES,
-} from "@/lib/preorderData";
-import {
-  submitOrder,
-  confirmPayment,
-  validateReferralCode,
-} from "@/lib/api";
+import { COLLAR_COLOURS, REFERRAL_SOURCES } from "@/lib/preorderData";
+import { submitOrder, confirmPayment, validateReferralCode } from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -29,13 +21,21 @@ interface Props {
 
 type PayState = "idle" | "submitting" | "paying" | "verifying" | "error";
 
+const inputCls =
+  "w-full bg-[#0a0a0a] border border-white/[0.07] rounded-xl text-white text-[14px] font-light px-4 py-[13px] outline-none placeholder:text-white/20 focus:border-[#E8622A]/50 transition-colors mb-4";
+
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <label className="block text-[11px] font-semibold tracking-[1.5px] uppercase text-white/25 mb-2">
+    {children}
+  </label>
+);
+
 export default function PreorderModal({
   open,
   onClose,
   onSuccess,
   seedPet,
 }: Props) {
-  // Form state — field names match what /submit expects
   const [name, setName] = useState("");
   const [dogsname, setDogsname] = useState("");
   const [mail, setMail] = useState("");
@@ -48,22 +48,23 @@ export default function PreorderModal({
   const [photoPreview, setPhotoPreview] = useState("");
   const [hasReferral, setHasReferral] = useState(false);
   const [refCode, setRefCode] = useState("");
-  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "ok" | "err">("idle");
+  const [refStatus, setRefStatus] = useState<
+    "idle" | "checking" | "ok" | "err"
+  >("idle");
   const [isRazorpayReady, setIsRazorpayReady] = useState(false);
-
   const [payState, setPayState] = useState<PayState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [shake, setShake] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const referralCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const referralCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const latestReferralCodeRef = useRef("");
 
-  // Sync seed pet name when modal opens
   useEffect(() => {
     if (open) setDogsname(seedPet || "");
   }, [open, seedPet]);
 
-  // Full reset when modal closes
   useEffect(() => {
     if (!open) {
       setName("");
@@ -81,20 +82,18 @@ export default function PreorderModal({
       setRefStatus("idle");
       setPayState("idle");
       setErrorMsg("");
-      if (referralCheckTimeoutRef.current) {
+      if (referralCheckTimeoutRef.current)
         clearTimeout(referralCheckTimeoutRef.current);
-        referralCheckTimeoutRef.current = null;
-      }
     }
   }, [open]);
 
-  useEffect(() => {
-    return () => {
-      if (referralCheckTimeoutRef.current) {
+  useEffect(
+    () => () => {
+      if (referralCheckTimeoutRef.current)
         clearTimeout(referralCheckTimeoutRef.current);
-      }
-    };
-  }, []);
+    },
+    [],
+  );
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,27 +112,18 @@ export default function PreorderModal({
     const trimmed = normalized.trim();
     setRefCode(normalized);
     latestReferralCodeRef.current = trimmed;
-
-    if (referralCheckTimeoutRef.current) {
+    if (referralCheckTimeoutRef.current)
       clearTimeout(referralCheckTimeoutRef.current);
-      referralCheckTimeoutRef.current = null;
-    }
-
-    if (!trimmed) {
+    if (!trimmed || trimmed.length < 6) {
       setRefStatus("idle");
       return;
     }
-    if (trimmed.length < 6) {
-      setRefStatus("idle");
-      return;
-    }
-
     setRefStatus("checking");
     referralCheckTimeoutRef.current = setTimeout(async () => {
       try {
-        const validation = await validateReferralCode(trimmed);
+        const v = await validateReferralCode(trimmed);
         if (latestReferralCodeRef.current !== trimmed) return;
-        setRefStatus(validation.valid ? "ok" : "err");
+        setRefStatus(v.valid ? "ok" : "err");
       } catch {
         if (latestReferralCodeRef.current !== trimmed) return;
         setRefStatus("err");
@@ -141,9 +131,7 @@ export default function PreorderModal({
     }, 350);
   };
 
-  // ── Main payment flow ────────────────────────────────────────
   const submit = async () => {
-    // Validate required fields (matching /submit required fields)
     if (
       !name.trim() ||
       !dogsname.trim() ||
@@ -160,10 +148,9 @@ export default function PreorderModal({
     if (!dogPhoto) {
       setShake(true);
       setTimeout(() => setShake(false), 450);
-      setErrorMsg("Please upload a photo of your dog 🐾");
+      setErrorMsg("Please upload a photo of your dog.");
       return;
     }
-
     if (hasReferral && refCode.trim()) {
       if (refStatus === "checking") {
         setErrorMsg("Checking referral code. Please wait.");
@@ -174,12 +161,9 @@ export default function PreorderModal({
         return;
       }
     }
-
     setPayState("submitting");
     setErrorMsg("");
-
     try {
-      // ── STEP 1: POST /submit ─────────────────────────────
       const formData = new FormData();
       formData.append("name", name.trim());
       formData.append("phoneno", phoneno.trim());
@@ -188,69 +172,52 @@ export default function PreorderModal({
       formData.append("mail", mail.trim());
       formData.append("dogsname", dogsname.trim());
       formData.append("dogphoto", dogPhoto);
-      if (hasReferral && refStatus === "ok" && refCode.trim()) {
+      if (hasReferral && refStatus === "ok" && refCode.trim())
         formData.append("referralCode", refCode.trim().toUpperCase());
-      }
 
       const submitRes: any = await submitOrder(formData);
       const submissionId = submitRes?.data?._id ?? submitRes?.data?.data_id;
-      if (!submissionId) {
+      if (!submissionId)
         throw new Error("Submission ID missing from /submit response.");
-      }
 
       const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-      if (!razorpayKey) {
+      if (!razorpayKey)
         throw new Error("Razorpay key is missing in frontend env.");
-      }
 
       setPayState("paying");
-
-      // ── STEP 3: Open Razorpay checkout ────────────────────
       await new Promise<void>((resolve, reject) => {
         if (!isRazorpayReady || !(window as any).Razorpay) {
-          reject(new Error("Payment gateway is still loading. Please try again."));
+          reject(
+            new Error("Payment gateway is still loading. Please try again."),
+          );
           return;
         }
-
         const rzp = new (window as any).Razorpay({
           key: razorpayKey,
           amount: 100,
           currency: "INR",
-
           name: "MyPerro",
           description: "Founding Pack — ₹500 token",
-
-          prefill: {
-            name,
-            email: mail,
-            contact: phoneno,
-          },
-
-          theme: { color: "#FF6600" },
-
+          prefill: { name, email: mail, contact: phoneno },
+          theme: { color: "#E8622A" },
           modal: {
             confirm_close: true,
             ondismiss: () => reject(new Error("cancelled")),
           },
-
           handler: async (response: any) => {
             try {
               setPayState("verifying");
-
-              if (!response?.razorpay_payment_id) {
+              if (!response?.razorpay_payment_id)
                 throw new Error("Missing payment id from Razorpay.");
-              }
-
               const data = await confirmPayment({
                 submissionId,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
               });
-
-              if (!data?.data) {
-                throw new Error("Invalid payment success response from backend.");
-              }
-
+              if (!data?.data)
+                throw new Error(
+                  "Invalid payment success response from backend.",
+                );
               onSuccess({
                 petName: dogsname,
                 ownerName: name,
@@ -258,25 +225,22 @@ export default function PreorderModal({
                 cohortPosition: data.data.cohortPosition,
                 referralCode: data.data.referralCode,
               });
-
               resolve();
             } catch (error: any) {
               reject(
                 new Error(
-                  error?.message || "Payment succeeded, but confirmation failed.",
+                  error?.message ||
+                    "Payment succeeded, but confirmation failed.",
                 ),
               );
             }
           },
         });
-
         rzp.open();
       });
     } catch (err: any) {
-      if (err.message === "cancelled") {
-        // User closed Razorpay popup — just go back to form, don't show error
-        setPayState("idle");
-      } else {
+      if (err.message === "cancelled") setPayState("idle");
+      else {
         setPayState("error");
         setErrorMsg(err.message || "Something went wrong. Please try again.");
       }
@@ -284,9 +248,7 @@ export default function PreorderModal({
   };
 
   if (!open) return null;
-
   const isLoading = ["submitting", "paying", "verifying"].includes(payState);
-
   const btnLabel =
     payState === "submitting"
       ? "Saving your details..."
@@ -294,13 +256,7 @@ export default function PreorderModal({
         ? "Complete payment in popup →"
         : payState === "verifying"
           ? "Confirming payment..."
-          : "PAY ₹500 — SECURE MY FOUNDING SPOT →";
-
-  const Label = ({ children }: { children: React.ReactNode }) => (
-    <label className="block text-[11px] font-bold tracking-[1.5px] uppercase text-white/38 mb-[7px]">
-      {children}
-    </label>
-  );
+          : "Reserve My Spot — ₹500 →";
 
   return (
     <>
@@ -312,38 +268,41 @@ export default function PreorderModal({
       />
 
       <div
-        className="fixed inset-0 z-[800] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6"
+        className="fixed inset-0 z-[800] bg-[#0a0a0a]/95 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-6"
         onClick={(e) => e.target === e.currentTarget && !isLoading && onClose()}
       >
         <div
-          className={`bg-[#161616] border border-[rgba(255,102,0,0.2)] rounded-2xl p-10 max-w-[540px] w-full relative max-h-[90vh] overflow-y-auto po-modal-in ${shake ? "po-shake" : ""}`}
+          className={`bg-[#111] border border-white/[0.07] sm:rounded-2xl rounded-t-2xl p-6 sm:p-10 w-full sm:max-w-[520px] relative max-h-[92vh] overflow-y-auto po-modal-in ${shake ? "po-shake" : ""}`}
         >
+          {/* Drag handle on mobile */}
+          <div className="w-10 h-1 rounded-full bg-white/10 mx-auto mb-5 sm:hidden" />
+
           <button
             onClick={() => !isLoading && onClose()}
             disabled={isLoading}
-            className="absolute top-4 right-5 bg-transparent border-none text-white/40 text-[22px] hover:text-white transition-colors disabled:opacity-30"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-white/20 hover:text-white/55 transition-colors text-[18px] disabled:opacity-20"
           >
             ✕
           </button>
 
-          {/* Header */}
-          <div className="inline-flex items-center gap-2 bg-[rgba(255,102,0,0.1)] border border-[rgba(255,102,0,0.35)] text-[#FF6600] text-[11px] font-bold tracking-[2px] uppercase px-4 py-[5px] rounded-full mb-4">
+          <div className="inline-flex items-center gap-2 border border-[#E8622A]/25 text-[#E8622A]/65 text-[10px] font-semibold tracking-[2.5px] uppercase px-4 py-[5px] rounded-full mb-4 sm:mb-5">
             🐾 Founding Pack
           </div>
-          <h3 className="font-bebas text-[44px] leading-none mb-2">
-            LOCK IN YOUR SPOT
+          <h3
+            className="font-playfair font-normal text-white leading-[1.1] mb-2"
+            style={{ fontSize: "clamp(26px, 4vw, 36px)" }}
+          >
+            Lock in your spot.
           </h3>
-          <p className="text-[13px] text-white/50 leading-[1.65] mb-7">
-            Pay ₹500 now — credited towards your collar. Locking in founder
-            price, 6 months free subscription, and every perk. Fully refundable.
+          <p className="text-[13px] text-white/30 font-light leading-[1.75] mb-6 sm:mb-8">
+            Pay ₹500 now — credited towards your collar. Fully refundable.
           </p>
 
-          {/* Your Name + Dog's Name */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Your Name *</Label>
               <input
-                className="po-input"
+                className={inputCls}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Priya"
@@ -351,9 +310,9 @@ export default function PreorderModal({
               />
             </div>
             <div>
-              <Label>Dog&apos;s Name *</Label>
+              <Label>Dog's Name *</Label>
               <input
-                className="po-input"
+                className={inputCls}
                 value={dogsname}
                 onChange={(e) => setDogsname(e.target.value)}
                 placeholder="e.g. Bruno"
@@ -364,7 +323,7 @@ export default function PreorderModal({
 
           <Label>Email *</Label>
           <input
-            className="po-input"
+            className={inputCls}
             type="email"
             value={mail}
             onChange={(e) => setMail(e.target.value)}
@@ -374,7 +333,7 @@ export default function PreorderModal({
 
           <Label>Phone *</Label>
           <input
-            className="po-input"
+            className={inputCls}
             type="tel"
             value={phoneno}
             onChange={(e) => setPhoneno(e.target.value)}
@@ -384,7 +343,7 @@ export default function PreorderModal({
 
           <Label>Address *</Label>
           <input
-            className="po-input"
+            className={inputCls}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="e.g. 12B, MG Road"
@@ -395,7 +354,7 @@ export default function PreorderModal({
             <div>
               <Label>City *</Label>
               <input
-                className="po-input"
+                className={inputCls}
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="e.g. Bengaluru"
@@ -405,7 +364,7 @@ export default function PreorderModal({
             <div>
               <Label>Collar Colour</Label>
               <select
-                className="po-input"
+                className={inputCls + " cursor-pointer"}
                 value={colour}
                 onChange={(e) => setColour(e.target.value)}
                 disabled={isLoading}
@@ -419,7 +378,7 @@ export default function PreorderModal({
 
           <Label>How did you hear about us?</Label>
           <select
-            className="po-input"
+            className={inputCls + " cursor-pointer"}
             value={source}
             onChange={(e) => setSource(e.target.value)}
             disabled={isLoading}
@@ -429,15 +388,10 @@ export default function PreorderModal({
             ))}
           </select>
 
-          {/* ── Dog photo upload ───────────────────────────── */}
-          <Label>Dog&apos;s Photo * (JPG / PNG / WEBP · Max 5MB)</Label>
+          <Label>Dog's Photo * (JPG / PNG / WEBP · Max 5MB)</Label>
           <div
             onClick={() => !isLoading && fileRef.current?.click()}
-            className={`mb-4 rounded-xl border-2 border-dashed transition-colors cursor-pointer ${
-              dogPhoto
-                ? "border-[#FF6600] bg-[rgba(255,102,0,0.06)]"
-                : "border-white/15 bg-white/[0.02] hover:border-white/30"
-            }`}
+            className={`mb-5 rounded-xl border-2 border-dashed transition-colors cursor-pointer ${dogPhoto ? "border-[#E8622A]/40 bg-[#E8622A]/[0.03]" : "border-white/[0.06] hover:border-white/15"}`}
           >
             <input
               ref={fileRef}
@@ -452,34 +406,34 @@ export default function PreorderModal({
                 <img
                   src={photoPreview}
                   alt="Dog preview"
-                  className="w-16 h-16 rounded-xl object-cover shrink-0"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-white truncate">
+                  <p className="text-[13px] font-light text-white/60 truncate">
                     {dogPhoto?.name}
                   </p>
-                  <p className="text-[11px] text-white/40 mt-1">
-                    {((dogPhoto?.size ?? 0) / 1024).toFixed(0)} KB · Click to
+                  <p className="text-[11px] text-white/20 mt-1">
+                    {((dogPhoto?.size ?? 0) / 1024).toFixed(0)} KB · Tap to
                     change
                   </p>
                 </div>
-                <span className="text-[#FF6600] text-xl shrink-0">✓</span>
+                <span className="text-[#E8622A] shrink-0">✓</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <span className="text-[32px]">📸</span>
-                <p className="text-[13px] text-white/50">
-                  Click to upload your dog&apos;s photo
+              <div className="flex flex-col items-center justify-center py-7 sm:py-8 gap-2">
+                <span className="text-[26px] sm:text-[28px]">📸</span>
+                <p className="text-[13px] text-white/25 font-light">
+                  Tap to upload your dog's photo
                 </p>
-                <p className="text-[11px] text-white/25">
-                  This appears on the Founding Pack Wall
+                <p className="text-[11px] text-white/15 font-light">
+                  Appears on the Founding Pack Wall
                 </p>
               </div>
             )}
           </div>
 
-          {/* ── Referral code ──────────────────────────────── */}
-          <div className="mb-4">
+          {/* Referral */}
+          <div className="mb-5">
             <label className="flex items-center gap-3 cursor-pointer group w-fit">
               <div
                 onClick={() => {
@@ -488,49 +442,42 @@ export default function PreorderModal({
                   setRefCode("");
                   setRefStatus("idle");
                   latestReferralCodeRef.current = "";
-                  if (referralCheckTimeoutRef.current) {
+                  if (referralCheckTimeoutRef.current)
                     clearTimeout(referralCheckTimeoutRef.current);
-                    referralCheckTimeoutRef.current = null;
-                  }
                 }}
-                className={`w-5 h-5 rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-all ${
-                  hasReferral
-                    ? "bg-[#FF6600] border-[#FF6600]"
-                    : "bg-transparent border-white/25 group-hover:border-white/50"
-                }`}
+                className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${hasReferral ? "bg-[#E8622A] border-[#E8622A]" : "bg-transparent border-white/20 group-hover:border-white/40"}`}
               >
                 {hasReferral && (
-                  <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                     <path
-                      d="M1 4L4 7L10 1"
-                      stroke="#080808"
-                      strokeWidth="2"
+                      d="M1 4L3.5 6.5L9 1"
+                      stroke="white"
+                      strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </svg>
                 )}
               </div>
-              <span className="text-[13px] text-white/60 group-hover:text-white/80 transition-colors select-none">
+              <span className="text-[13px] text-white/30 font-light group-hover:text-white/50 transition-colors select-none">
                 I have a referral code
               </span>
             </label>
-
             {hasReferral && (
               <div className="mt-3">
                 <Label>Referral Code</Label>
                 <div className="relative">
                   <input
-                    className="po-input !mb-0 pr-10 uppercase tracking-[2px]"
+                    className={
+                      inputCls + " pr-10 uppercase tracking-[2px] !mb-0"
+                    }
                     style={{
                       borderColor:
                         refStatus === "ok"
                           ? "#4ade80"
-                          : refStatus === "checking"
-                            ? "#FF6600"
                           : refStatus === "err"
-                            ? "#FF3B3B"
-                            : "rgba(255,255,255,0.1)",
+                            ? "#f87171"
+                            : undefined,
                     }}
                     value={refCode}
                     onChange={(e) => handleRefCode(e.target.value)}
@@ -540,23 +487,22 @@ export default function PreorderModal({
                     disabled={isLoading}
                   />
                   {refStatus !== "idle" && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[16px]">
-                      {refStatus === "checking" ? "..." : refStatus === "ok" ? "✅" : "❌"}
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[14px]">
+                      {refStatus === "checking"
+                        ? "…"
+                        : refStatus === "ok"
+                          ? "✓"
+                          : "✕"}
                     </span>
                   )}
                 </div>
-                {refStatus === "checking" && (
-                  <p className="text-[12px] text-white/60 mt-[6px]">
-                    Checking referral code...
-                  </p>
-                )}
                 {refStatus === "ok" && (
-                  <p className="text-[12px] text-[#4ade80] mt-[6px]">
-                    🎉 Code applied! Your referrer gets credit.
+                  <p className="text-[12px] text-green-400/60 mt-2 font-light">
+                    Code applied.
                   </p>
                 )}
                 {refStatus === "err" && (
-                  <p className="text-[12px] text-[#FF3B3B] mt-[6px]">
+                  <p className="text-[12px] text-red-400/60 mt-2 font-light">
                     Invalid referral code.
                   </p>
                 )}
@@ -564,23 +510,20 @@ export default function PreorderModal({
             )}
           </div>
 
-          {/* Error message */}
           {(payState === "error" || errorMsg) && (
-            <div className="mb-4 px-4 py-3 rounded-xl bg-[rgba(255,59,59,0.1)] border border-[rgba(255,59,59,0.3)] text-[13px] text-[#FF3B3B]">
-              ⚠️ {errorMsg}
+            <div className="mb-5 px-4 py-3 rounded-xl bg-red-500/[0.06] border border-red-500/15 text-[13px] text-red-400/70 font-light">
+              {errorMsg}
             </div>
           )}
 
-          {/* Pay button */}
           <button
             onClick={submit}
             disabled={isLoading}
-            className="w-full bg-[#FF6600] text-[#080808] font-bold text-[15px] uppercase tracking-wide py-4 rounded-full mt-1 transition-all hover:scale-[1.03] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
-            style={{ boxShadow: "0 0 32px rgba(255,102,0,0.3)" }}
+            className="w-full bg-[#E8622A] text-white font-semibold text-[14px] tracking-wide py-[15px] rounded-full transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
           >
             {isLoading && (
               <svg
-                className="animate-spin w-5 h-5 shrink-0"
+                className="animate-spin w-4 h-4 shrink-0"
                 viewBox="0 0 24 24"
                 fill="none"
               >
@@ -602,9 +545,9 @@ export default function PreorderModal({
             {btnLabel}
           </button>
 
-          <p className="text-[11px] text-white/22 text-center mt-3 leading-[1.6]">
-            ₹500 credited to collar price. Remaining ₹4,500 before delivery.
-            100% refundable before shipping.
+          <p className="text-[11px] text-white/15 text-center mt-4 leading-[1.7] font-light">
+            ₹500 credited to collar price · Remaining ₹4,500 before delivery ·
+            100% refundable
           </p>
         </div>
       </div>

@@ -28,7 +28,6 @@ import {
   FinalCTA,
 } from "@/components/Preorder/Sections";
 
-// Shape of result coming back from PreorderModal after payment
 interface PaymentResult {
   petName: string;
   ownerName: string;
@@ -37,10 +36,63 @@ interface PaymentResult {
   referralCode: string;
 }
 
-const POLL_MS = 30_000; // refresh live data every 30 seconds
+const POLL_MS = 30_000;
 
+/* ── Live toast ──────────────────────────────────────────────── */
+function LiveToast({ activity }: { activity: ActivityEntry[] }) {
+  const [visible, setVisible] = useState(false);
+  const [current, setCurrent] = useState<ActivityEntry | null>(null);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (activity.length === 0) return;
+    const show = () => {
+      setCurrent(activity[idx % activity.length]);
+      setVisible(true);
+      setTimeout(() => setVisible(false), 4000);
+      setIdx((i) => i + 1);
+    };
+    const first = setTimeout(show, 3000);
+    const interval = setInterval(show, 8000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
+  }, [activity, idx]);
+
+  if (!current) return null;
+  const initials = current.parentName?.charAt(0).toUpperCase() ?? "?";
+  const firstName = current.parentName?.split(" ")[0] ?? "Someone";
+
+  return (
+    <div
+      className={`fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-[600] transition-all duration-500 max-w-[260px] sm:max-w-none ${
+        visible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-3 pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center gap-3 bg-[#1a1a1a] border border-white/[0.08] rounded-xl px-4 py-3 shadow-2xl">
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#E8622A]/20 border border-[#E8622A]/30 flex items-center justify-center shrink-0">
+          <span className="font-playfair text-[#E8622A] text-[13px]">
+            {initials}
+          </span>
+        </div>
+        <div>
+          <p className="text-[12px] sm:text-[13px] text-white/80 font-light leading-[1.3]">
+            <span className="font-semibold">{firstName}</span> · {current.city}
+          </p>
+          <p className="text-[10px] sm:text-[11px] text-white/30 font-light mt-[1px]">
+            Reserved spot #{current.position} · {timeAgo(current.claimedAt)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main page ───────────────────────────────────────────────── */
 export default function PreorderPage() {
-  // ── Live data from backend ─────────────────────────────────
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [cohorts, setCohorts] = useState<CohortsData>({
     "cohort 1": [],
@@ -55,15 +107,15 @@ export default function PreorderPage() {
     lastClaimedAt: "",
   });
 
-  // ── UI state ───────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
   const [succOpen, setSuccOpen] = useState(false);
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [confetti, setConfetti] = useState(false);
   const [teaserPet, setTeaserPet] = useState("");
   const [showNav, setShowNav] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // ── Fetch all live data ────────────────────────────────────
   const loadAll = useCallback(async () => {
     const [act, coh, sp] = await Promise.all([
       fetchActivity(20),
@@ -75,37 +127,24 @@ export default function PreorderPage() {
     setSpots(sp);
   }, []);
 
-  // Initial fetch + poll every 30s
   useEffect(() => {
     loadAll();
     const id = setInterval(loadAll, POLL_MS);
     return () => clearInterval(id);
   }, [loadAll]);
 
-  // ── Handle scroll to show/hide navbar ───────────────────
   useEffect(() => {
-    let lastScrollY = window.scrollY;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > lastScrollY) {
-        // Scrolling down → hide
-        setShowNav(false);
-      } else {
-        // Scrolling up → show
-        setShowNav(true);
-      }
-
-      lastScrollY = currentScrollY;
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 60);
+      setShowNav(y <= lastY);
+      lastY = y;
     };
-
-    window.addEventListener("scroll", handleScroll);
-
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ── After successful payment ───────────────────────────────
   const handleSuccess = useCallback(
     async (data: PaymentResult) => {
       setResult(data);
@@ -113,92 +152,168 @@ export default function PreorderPage() {
       setSuccOpen(true);
       setConfetti(true);
       setTimeout(() => setConfetti(false), 5500);
-
-      // Re-fetch immediately so wall + activity update right away
       await loadAll();
     },
     [loadAll],
   );
 
-  // Derive display values from spots
   const lastClaimed = spots.lastClaimedAt
     ? timeAgo(spots.lastClaimedAt)
     : "recently";
+  const openModal = () => {
+    setModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const navLinks = [
+    ["PRODUCT", "#collar"],
+    ["PERKS", "#perks"],
+    ["HOW IT WORKS", "#process"],
+    ["FOUNDING PACK", "#wall"],
+  ];
 
   return (
-    <div className="bg-[#080808] text-white min-h-screen overflow-x-hidden pt-[72px]">
+    <div className="bg-[#0a0a0a] text-white min-h-screen overflow-x-hidden">
       <Confetti show={confetti} />
 
-      {/* NAVBAR */}
-      <div
-        className={`
-          fixed top-0 left-0 right-0 z-50
-          transition-transform duration-300
-          ${showNav ? "translate-y-0" : "-translate-y-full"}
-          bg-[rgba(8,8,8,0.95)] backdrop-blur-xl
-          border-b border-[rgba(255,102,0,0.18)]
-        `}
+      {/* ── Navbar ────────────────────────────────────────── */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          showNav ? "translate-y-0" : "-translate-y-full"
+        } ${
+          scrolled
+            ? "bg-[rgba(10,10,10,0.96)] backdrop-blur-xl border-b border-white/[0.05]"
+            : "bg-transparent"
+        }`}
       >
-        <div className="flex items-center justify-between px-10 py-4">
-          {/* LOGO */}
-          <img src="/myperro-logo.png" alt="MyPerro" className="h-7" />
+        <div className="flex items-center justify-between px-6 sm:px-10 md:px-14 py-4 sm:py-5 max-w-[1400px] mx-auto">
+          <img
+            src="/myperro-logo.png"
+            alt="MyPerro"
+            className="h-5 sm:h-6 opacity-85"
+          />
 
-          {/* RIGHT */}
-          <div className="flex items-center gap-5">
-            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-[#FF6600] uppercase tracking-wide">
-              <span className="w-[7px] h-[7px] bg-[#FF6600] rounded-full animate-pulse" />
-              {spots.remaining} spots remaining
-            </div>
+          {/* Desktop nav links */}
+          <nav className="hidden md:flex items-center gap-10">
+            {navLinks.map(([label, href]) => (
+              <a
+                key={label}
+                href={href}
+                className="text-[11px] font-semibold tracking-[2px] text-white/35 hover:text-white/70 transition-colors"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
 
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Spots remaining — desktop only */}
+            <span className="hidden sm:block text-[11px] text-white/25 font-light">
+              <span className="text-[#E8622A]">{spots.remaining}</span> spots
+              left
+            </span>
+
+            {/* Reserve button */}
             <button
-              onClick={() => setModalOpen(true)}
-              className="bg-[#FF6600] text-[#080808] font-bold text-[13px] uppercase tracking-wide px-7 py-3 rounded-full transition hover:scale-105"
+              onClick={openModal}
+              className="bg-[#E8622A] text-white font-semibold text-[12px] tracking-wide px-5 sm:px-6 py-[9px] sm:py-[10px] rounded-full transition-opacity hover:opacity-90"
             >
-              Claim Your Spot
+              Reserve Spot
+            </button>
+
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex flex-col gap-[5px] p-1"
+              aria-label="Menu"
+            >
+              <span
+                className={`block w-5 h-[1.5px] bg-white/50 transition-transform duration-200 ${mobileMenuOpen ? "rotate-45 translate-y-[6.5px]" : ""}`}
+              />
+              <span
+                className={`block w-5 h-[1.5px] bg-white/50 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-0" : ""}`}
+              />
+              <span
+                className={`block w-5 h-[1.5px] bg-white/50 transition-transform duration-200 ${mobileMenuOpen ? "-rotate-45 -translate-y-[6.5px]" : ""}`}
+              />
             </button>
           </div>
         </div>
-      </div>
 
-      {/* ── Activity bar ─────────────────────────────────── */}
-      <ActivityBar activity={activity} />
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-[rgba(10,10,10,0.98)] backdrop-blur-xl border-t border-white/[0.05] px-6 py-6 flex flex-col gap-6">
+            {navLinks.map(([label, href]) => (
+              <a
+                key={label}
+                href={href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-[12px] font-semibold tracking-[2px] text-white/40 hover:text-white/70 transition-colors"
+              >
+                {label}
+              </a>
+            ))}
+            <div className="pt-2 border-t border-white/[0.05] text-[12px] text-white/20 font-light">
+              <span className="text-[#E8622A]">{spots.remaining}</span> spots
+              remaining
+            </div>
+          </div>
+        )}
+      </header>
 
-      {/* ── Hero ─────────────────────────────────────────── */}
+      {/* top padding to offset fixed navbar */}
+      <div className="pt-[60px] sm:pt-[72px]" />
+
+      {/* ── Sections ──────────────────────────────────────── */}
       <Hero
         claimed={spots.claimed}
         total={spots.total}
         lastClaimed={lastClaimed}
         teaserPet={teaserPet}
         onTeaserChange={setTeaserPet}
-        onClaim={() => setModalOpen(true)}
+        onClaim={openModal}
       />
-
       <TickerStrip />
       <PerksSection />
-      <SavingsSection />
-
-      {/* ── Pet Wall (cohort data from /cohorts) ─────────── */}
-      <PetWall cohorts={cohorts} />
-
-      {/* ── Live feed (activity from /activity/live) ──────── */}
-      <FeedSection activity={activity} onClaim={() => setModalOpen(true)} />
-
+      <PetWall cohorts={cohorts} onClaim={openModal} />
       <StepsSection />
-      <PledgeSection />
       <FaqSection />
-      <FinalCTA
-        remaining={spots.remaining}
-        onClaim={() => setModalOpen(true)}
-      />
+      <FinalCTA remaining={spots.remaining} onClaim={openModal} />
 
-      {/* ── Modals ───────────────────────────────────────── */}
+      {/* Footer */}
+      <footer className="bg-[#0a0a0a] border-t border-white/[0.04] py-8 sm:py-10 px-6 sm:px-10 md:px-20">
+        <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
+          <img
+            src="/myperro-logo.png"
+            alt="MyPerro"
+            className="h-5 opacity-30"
+          />
+          <p className="text-[11px] sm:text-[12px] text-white/15 font-light">
+            © 2026 MyPerro. myperro.in
+          </p>
+          <div className="flex gap-5 sm:gap-6">
+            {["Privacy", "Terms", "Contact"].map((l) => (
+              <a
+                key={l}
+                href="#"
+                className="text-[11px] sm:text-[12px] text-white/20 hover:text-white/40 transition-colors font-light"
+              >
+                {l}
+              </a>
+            ))}
+          </div>
+        </div>
+      </footer>
+
+      <LiveToast activity={activity} />
+
+      {/* Modals */}
       <PreorderModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSuccess={handleSuccess}
         seedPet={teaserPet}
       />
-
       {result && (
         <SuccessModal
           open={succOpen}

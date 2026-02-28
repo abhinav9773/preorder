@@ -51,6 +51,7 @@ export default {
       },
       fontFamily: {
         borela: ["var(--borela)"],
+        playfair: ["var(--font-playfair)", "serif"],
         montserrat: ["var(--montserrat)"],
         mombay: ["var(--mombay)"],
       },
