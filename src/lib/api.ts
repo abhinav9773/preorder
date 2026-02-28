@@ -4,7 +4,10 @@
 // Set NEXT_PUBLIC_BACKEND_URL in .env.local
 // ─────────────────────────────────────────────────────────────
 
-const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+const BASE = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  "https://myperro-website-backend.onrender.com"
+).replace(/\/+$/, "");
 
 // ── Response types (matching his exact shapes) ────────────────
 
