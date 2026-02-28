@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: {
     default: "MyPerro - Smart Pet Collar & GPS Tracker",
-    template: "%s | MyPerro",
+    template: "%s ",
   },
   description:
     "MyPerro is the smartest way to care for your dog — with GPS tracking, health monitoring, geofencing, and real-time alerts from a smart collar.",
