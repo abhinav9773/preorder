@@ -215,10 +215,6 @@ export const FAQS = [
     q: "What after the 6 months free subscription?",
     a: "Plans start at ₹250/month. Founding Pack members get a permanent loyalty discount — you will always pay less than retail subscribers.",
   },
-  {
-    q: "How does collar customisation work?",
-    a: "After securing your spot, we send a personalisation form for your dog's name, preferred colour, and special requests. Name gets laser-engraved before shipping.",
-  },
 ];
 
 export const TICKER_ITEMS = [

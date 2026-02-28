@@ -30,7 +30,6 @@ export default function PerksSection() {
   const specs = [
     ["GPS Technology", "Multi-band GPS + BLE"],
     ["Battery Life", "Up to 7 days"],
-    ["Water Resistance", "IP67"],
     ["Connectivity", "4G LTE + WiFi"],
   ];
 
