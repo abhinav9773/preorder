@@ -55,19 +55,19 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!ObjectId.isValid(submissionId)) {
       return NextResponse.json(
         { error: "Invalid submission ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Create Razorpay order (₹500 = 50000 paise)
     const order = await razorpay.orders.create({
-      amount: 100,
+      amount: 50000,
       currency: "INR",
       receipt: `myperro_spot_${rank}_${Date.now()}`,
       notes: {
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     console.error("[preorder] Razorpay order creation failed:", err);
     return NextResponse.json(
       { error: "Failed to create order. Please try again." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

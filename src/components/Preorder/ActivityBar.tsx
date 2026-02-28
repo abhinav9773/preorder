@@ -8,27 +8,23 @@ export default function ActivityBar({
 }: {
   activity: ActivityEntry[];
 }) {
-  // Need at least something to scroll — fallback to empty state
   if (activity.length === 0) return null;
 
-  // Duplicate for seamless infinite scroll
   const msgs = [...activity, ...activity];
 
   return (
-    <div className="overflow-hidden bg-[rgba(255,102,0,0.07)] border-b border-[rgba(255,102,0,0.18)] h-[38px] flex items-center">
+    <div className="overflow-hidden bg-[#0f0f0f] border-b border-white/[0.05] h-[36px] flex items-center">
       <div className="flex whitespace-nowrap po-act-scroll">
         {msgs.map((f, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 text-xs text-white/55 font-semibold px-8 whitespace-nowrap"
+            className="flex items-center gap-2 text-[11px] text-white/25 font-light px-8 whitespace-nowrap tracking-wide"
           >
-            🐾 <span className="text-[#FF8533]">{f.dogName}</span>&apos;s parent
-            from <span className="text-[#FF8533]">{f.city}</span>&nbsp;claimed{" "}
-            <strong className="text-white">
-              Cohort {f.cohortNumber} · Spot #{f.position}
-            </strong>
-            &nbsp;· {timeAgo(f.claimedAt)}
-            <span className="text-white/10 px-2">|</span>
+            <span className="w-[5px] h-[5px] bg-[#E8622A] rounded-full shrink-0 opacity-60" />
+            <span className="text-white/45">{f.dogName}</span>'s parent from{" "}
+            <span className="text-white/45">{f.city}</span> just joined · Cohort{" "}
+            {f.cohortNumber} · Spot #{f.position} · {timeAgo(f.claimedAt)}
+            <span className="text-white/[0.07] px-6">|</span>
           </div>
         ))}
       </div>
