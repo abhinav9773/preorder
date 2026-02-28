@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import mongoose from "mongoose";
-import Submission from "@/models/Submission";
 
 export const runtime = "nodejs";
 
