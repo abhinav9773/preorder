@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { ObjectId } from "mongodb";
+import { connectToDatabase } from "@/lib/mongodb";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -20,6 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
+      submissionId,
       owner,
       pet,
       email,
@@ -36,6 +39,12 @@ export async function POST(req: NextRequest) {
     if (!owner?.trim() || !pet?.trim() || !email?.trim() || !phone?.trim()) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+    if (!submissionId || !ObjectId.isValid(submissionId)) {
+      return NextResponse.json(
+        { error: "Invalid submission ID" },
         { status: 400 },
       );
     }
@@ -59,10 +68,24 @@ export async function POST(req: NextRequest) {
       },
     });
     
-    // 🔥 LINK ORDER TO SUBMISSION
-    await Submission.findByIdAndUpdate(submissionId, {
-      razorpayOrderId: order.id,
-    });
+    // Link Razorpay order with the already-created submission record.
+    const { db } = await connectToDatabase();
+    const updateResult = await db.collection("submissions").updateOne(
+      { _id: new ObjectId(submissionId) },
+      {
+        $set: {
+          razorpayOrderId: order.id,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    if (updateResult.matchedCount === 0) {
+      return NextResponse.json(
+        { error: "Submission not found" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({
       orderId: order.id,

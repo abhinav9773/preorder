@@ -33,6 +33,27 @@ export interface PaymentSuccessResponse {
   };
 }
 
+export interface CreateOrderPayload {
+  submissionId: string;
+  owner: string;
+  pet: string;
+  email: string;
+  phone: string;
+  breed?: string;
+  city?: string;
+  colour?: string;
+  source?: string;
+  rank?: number;
+  referralCode?: string;
+}
+
+export interface CreateOrderResponse {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+}
+
 export interface ActivityEntry {
   dogName: string;
   parentName: string;
@@ -60,6 +81,16 @@ export interface SpotsStatus {
   remaining: number;
   totalPaidOverall: number;
   lastClaimedAt: string;    // ISO — convert with timeAgo()
+}
+
+export interface ReferralValidationResponse {
+  message: string;
+  valid: boolean;
+  data?: {
+    referrerName: string;
+    referralCode: string;
+    referralUseCount: number;
+  };
 }
 
 // ── Utility: ISO timestamp → "X mins ago" ────────────────────
@@ -90,12 +121,28 @@ export async function submitOrder(formData: FormData): Promise<SubmitResponse> {
   return res.json();
 }
 
-// ── 2. POST /payment/success ──────────────────────────────────
+// ── 2. POST /preorder (create Razorpay order) ─────────────────
+export async function createPreorderOrder(
+  payload: CreateOrderPayload,
+): Promise<CreateOrderResponse> {
+  const res = await fetch(`${BASE}/preorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || "Failed to create payment order");
+  }
+  return res.json();
+}
+
+// ── 3. POST /payment/success ──────────────────────────────────
 export async function confirmPayment(payload: {
   submissionId: string;
   razorpay_payment_id: string;
   razorpay_order_id?: string;
-  razorpay_signature: string; 
+  razorpay_signature?: string;
 }): Promise<PaymentSuccessResponse> {
   const res = await fetch(`${BASE}/payment/success`, {
     method: "POST",
@@ -105,6 +152,20 @@ export async function confirmPayment(payload: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "Payment confirmation failed. Please contact support.");
+  }
+  return res.json();
+}
+
+export async function validateReferralCode(
+  code: string,
+): Promise<ReferralValidationResponse> {
+  const res = await fetch(
+    `${BASE}/referral/validate?code=${encodeURIComponent(code)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || "Failed to validate referral code.");
   }
   return res.json();
 }

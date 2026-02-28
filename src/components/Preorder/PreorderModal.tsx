@@ -8,7 +8,12 @@ import {
   COLLAR_COLOURS,
   REFERRAL_SOURCES,
 } from "@/lib/preorderData";
-import { submitOrder} from "@/lib/api";
+import {
+  submitOrder,
+  createPreorderOrder,
+  confirmPayment,
+  validateReferralCode,
+} from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -44,12 +49,15 @@ export default function PreorderModal({
   const [photoPreview, setPhotoPreview] = useState("");
   const [hasReferral, setHasReferral] = useState(false);
   const [refCode, setRefCode] = useState("");
-  const [refStatus, setRefStatus] = useState<"idle" | "ok" | "err">("idle");
+  const [refStatus, setRefStatus] = useState<"idle" | "checking" | "ok" | "err">("idle");
+  const [isRazorpayReady, setIsRazorpayReady] = useState(false);
 
   const [payState, setPayState] = useState<PayState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [shake, setShake] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const referralCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestReferralCodeRef = useRef("");
 
   // Sync seed pet name when modal opens
   useEffect(() => {
@@ -74,8 +82,20 @@ export default function PreorderModal({
       setRefStatus("idle");
       setPayState("idle");
       setErrorMsg("");
+      if (referralCheckTimeoutRef.current) {
+        clearTimeout(referralCheckTimeoutRef.current);
+        referralCheckTimeoutRef.current = null;
+      }
     }
   }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (referralCheckTimeoutRef.current) {
+        clearTimeout(referralCheckTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,13 +110,36 @@ export default function PreorderModal({
   };
 
   const handleRefCode = (val: string) => {
-    setRefCode(val);
-    if (!val.trim()) {
+    const normalized = val.toUpperCase();
+    const trimmed = normalized.trim();
+    setRefCode(normalized);
+    latestReferralCodeRef.current = trimmed;
+
+    if (referralCheckTimeoutRef.current) {
+      clearTimeout(referralCheckTimeoutRef.current);
+      referralCheckTimeoutRef.current = null;
+    }
+
+    if (!trimmed) {
       setRefStatus("idle");
       return;
     }
-    // Basic length check — backend validates the actual code
-    setRefStatus(val.trim().length >= 6 ? "ok" : "idle");
+    if (trimmed.length < 6) {
+      setRefStatus("idle");
+      return;
+    }
+
+    setRefStatus("checking");
+    referralCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        const validation = await validateReferralCode(trimmed);
+        if (latestReferralCodeRef.current !== trimmed) return;
+        setRefStatus(validation.valid ? "ok" : "err");
+      } catch {
+        if (latestReferralCodeRef.current !== trimmed) return;
+        setRefStatus("err");
+      }
+    }, 350);
   };
 
   // ── Main payment flow ────────────────────────────────────────
@@ -122,6 +165,17 @@ export default function PreorderModal({
       return;
     }
 
+    if (hasReferral && refCode.trim()) {
+      if (refStatus === "checking") {
+        setErrorMsg("Checking referral code. Please wait.");
+        return;
+      }
+      if (refStatus !== "ok") {
+        setErrorMsg("Please enter a valid referral code or uncheck referral.");
+        return;
+      }
+    }
+
     setPayState("submitting");
     setErrorMsg("");
 
@@ -139,28 +193,26 @@ export default function PreorderModal({
         formData.append("referralCode", refCode.trim().toUpperCase());
       }
 
-      const submitRes = await submitOrder(formData);
-      const submissionId = submitRes.data._id; // save for step 3
+      const submitRes: any = await submitOrder(formData);
+      const submissionId =
+        submitRes?.data?.data?._id ?? submitRes?.data?._id;
+      if (!submissionId) {
+        throw new Error("Submission ID missing from /submit response.");
+      }
 
       // ── STEP 2: Create Razorpay order from backend ─────────
-      const orderRes = await fetch("/api/preorder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId,
-          owner: name,
-          pet: dogsname,
-          email: mail,
-          phone: phoneno,
-          city,
-          colour,
-          source,
-          rank: 1,
-          referralCode: hasReferral ? refCode : "",
-        }),
+      const orderData = await createPreorderOrder({
+        submissionId,
+        owner: name,
+        pet: dogsname,
+        email: mail,
+        phone: phoneno,
+        city,
+        colour,
+        source,
+        rank: 1,
+        referralCode: hasReferral && refStatus === "ok" ? refCode.trim().toUpperCase() : "",
       });
-
-      const orderData = await orderRes.json();
 
       if (!orderData.keyId) {
         throw new Error("Payment key not received");
@@ -170,6 +222,11 @@ export default function PreorderModal({
 
       // ── STEP 3: Open Razorpay checkout ────────────────────
       await new Promise<void>((resolve, reject) => {
+        if (!isRazorpayReady || !(window as any).Razorpay) {
+          reject(new Error("Payment gateway is still loading. Please try again."));
+          return;
+        }
+
         const rzp = new (window as any).Razorpay({
           key: orderData.keyId,
           amount: orderData.amount,
@@ -192,34 +249,41 @@ export default function PreorderModal({
             ondismiss: () => reject(new Error("cancelled")),
           },
 
-        handler: async (response: any) => {
-  setPayState("verifying");
+          handler: async (response: any) => {
+            try {
+              setPayState("verifying");
 
-  const res = await fetch("/api/payment/success", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      submissionId,
-      razorpay_payment_id: response.razorpay_payment_id,
-    }),
-  });
+              if (!response?.razorpay_payment_id) {
+                throw new Error("Missing payment id from Razorpay.");
+              }
 
-  const data = await res.json();
+              const data = await confirmPayment({
+                submissionId,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+              });
 
-  if (!res.ok) {
-    throw new Error(data.error || "Verification failed");
-  }
+              if (!data?.data) {
+                throw new Error("Invalid payment success response from backend.");
+              }
 
-  onSuccess({
-    petName: dogsname,
-    ownerName: name,
-    cohortNumber: data.data.cohortNumber,
-    cohortPosition: data.data.cohortPosition,
-    referralCode: data.data.referralCode,
-  });
+              onSuccess({
+                petName: dogsname,
+                ownerName: name,
+                cohortNumber: data.data.cohortNumber,
+                cohortPosition: data.data.cohortPosition,
+                referralCode: data.data.referralCode,
+              });
 
-  resolve();
-},
+              resolve();
+            } catch (error: any) {
+              reject(
+                new Error(
+                  error?.message || "Payment succeeded, but confirmation failed.",
+                ),
+              );
+            }
+          },
         });
 
         rzp.open();
@@ -259,6 +323,8 @@ export default function PreorderModal({
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="lazyOnload"
+        onLoad={() => setIsRazorpayReady(true)}
+        onError={() => setIsRazorpayReady(false)}
       />
 
       <div
@@ -432,12 +498,17 @@ export default function PreorderModal({
           <div className="mb-4">
             <label className="flex items-center gap-3 cursor-pointer group w-fit">
               <div
-                onClick={() =>
-                  !isLoading &&
-                  (setHasReferral((v) => !v),
-                  setRefCode(""),
-                  setRefStatus("idle"))
-                }
+                onClick={() => {
+                  if (isLoading) return;
+                  setHasReferral((v) => !v);
+                  setRefCode("");
+                  setRefStatus("idle");
+                  latestReferralCodeRef.current = "";
+                  if (referralCheckTimeoutRef.current) {
+                    clearTimeout(referralCheckTimeoutRef.current);
+                    referralCheckTimeoutRef.current = null;
+                  }
+                }}
                 className={`w-5 h-5 rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-all ${
                   hasReferral
                     ? "bg-[#FF6600] border-[#FF6600]"
@@ -471,6 +542,8 @@ export default function PreorderModal({
                       borderColor:
                         refStatus === "ok"
                           ? "#4ade80"
+                          : refStatus === "checking"
+                            ? "#FF6600"
                           : refStatus === "err"
                             ? "#FF3B3B"
                             : "rgba(255,255,255,0.1)",
@@ -484,13 +557,23 @@ export default function PreorderModal({
                   />
                   {refStatus !== "idle" && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[16px]">
-                      {refStatus === "ok" ? "✅" : "❌"}
+                      {refStatus === "checking" ? "..." : refStatus === "ok" ? "✅" : "❌"}
                     </span>
                   )}
                 </div>
+                {refStatus === "checking" && (
+                  <p className="text-[12px] text-white/60 mt-[6px]">
+                    Checking referral code...
+                  </p>
+                )}
                 {refStatus === "ok" && (
                   <p className="text-[12px] text-[#4ade80] mt-[6px]">
                     🎉 Code applied! Your referrer gets credit.
+                  </p>
+                )}
+                {refStatus === "err" && (
+                  <p className="text-[12px] text-[#FF3B3B] mt-[6px]">
+                    Invalid referral code.
                   </p>
                 )}
               </div>
