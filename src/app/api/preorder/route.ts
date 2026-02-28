@@ -10,8 +10,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { ObjectId } from "mongodb";
 import { connectToDatabase } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+
+export const runtime = "nodejs";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -35,21 +37,27 @@ export async function POST(req: NextRequest) {
       referralCode,
     } = body;
 
-    // Basic server-side validation
-    if (!owner?.trim() || !pet?.trim() || !email?.trim() || !phone?.trim()) {
+    // Basic validation
+    if (
+      !submissionId ||
+      !owner?.trim() ||
+      !pet?.trim() ||
+      !email?.trim() ||
+      !phone?.trim()
+    ) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 },
+        { status: 400 }
       );
     }
-    if (!submissionId || !ObjectId.isValid(submissionId)) {
+    if (!ObjectId.isValid(submissionId)) {
       return NextResponse.json(
         { error: "Invalid submission ID" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    // Create Razorpay order — amount in paise (₹500 = 50000 paise)
+    // Create Razorpay order (₹500 = 50000 paise)
     const order = await razorpay.orders.create({
       amount: 100,
       currency: "INR",
@@ -67,8 +75,6 @@ export async function POST(req: NextRequest) {
         referral_code: referralCode || "",
       },
     });
-    
-    // Link Razorpay order with the already-created submission record.
     const { db } = await connectToDatabase();
     const updateResult = await db.collection("submissions").updateOne(
       { _id: new ObjectId(submissionId) },
@@ -89,15 +95,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderId: order.id,
-      amount: order.amount, // 50000
-      currency: order.currency, // "INR"
-      keyId: process.env.RAZORPAY_KEY_ID, // public key — safe to send to client
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err: any) {
     console.error("[preorder] Razorpay order creation failed:", err);
     return NextResponse.json(
       { error: "Failed to create order. Please try again." },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
