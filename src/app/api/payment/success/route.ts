@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { connectToDatabase } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export const runtime = "nodejs";
 
@@ -8,15 +10,8 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-async function connectDB() {
-  if (mongoose.connections[0].readyState) return;
-  await mongoose.connect(process.env.MONGODB_URI!);
-}
-
 export async function POST(req: NextRequest) {
   try {
-    await connectDB();
-
     const { submissionId, razorpay_payment_id } = await req.json();
 
     if (!submissionId || !razorpay_payment_id) {
@@ -26,7 +21,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔎 Fetch payment directly from Razorpay
+    if (!ObjectId.isValid(submissionId)) {
+      return NextResponse.json(
+        { error: "Invalid submission ID" },
+        { status: 400 }
+      );
+    }
+
+    // Verify payment from Razorpay
     const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
     if (payment.status !== "captured") {
@@ -36,7 +38,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const submission = await Submission.findById(submissionId);
+    const { db } = await connectToDatabase();
+
+    const submission = await db
+      .collection("submissions")
+      .findOne({ _id: new ObjectId(submissionId) });
 
     if (!submission) {
       return NextResponse.json(
@@ -49,8 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Already processed" });
     }
 
-    // 📊 Count total paid users
-    const totalPaid = await Submission.countDocuments({
+    const totalPaid = await db.collection("submissions").countDocuments({
       paymentStatus: "captured",
     });
 
@@ -60,13 +65,19 @@ export async function POST(req: NextRequest) {
     const referralCode =
       "REF" + razorpay_payment_id.slice(-8).toUpperCase();
 
-    submission.paymentStatus = "captured";
-    submission.razorpayPaymentId = razorpay_payment_id;
-    submission.cohortNumber = cohortNumber;
-    submission.cohortPosition = cohortPosition;
-    submission.referralCode = referralCode;
-
-    await submission.save();
+    await db.collection("submissions").updateOne(
+      { _id: new ObjectId(submissionId) },
+      {
+        $set: {
+          paymentStatus: "captured",
+          razorpayPaymentId: razorpay_payment_id,
+          cohortNumber,
+          cohortPosition,
+          referralCode,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     return NextResponse.json({
       message: "Payment verified successfully",
