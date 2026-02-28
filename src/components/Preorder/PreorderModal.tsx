@@ -8,7 +8,7 @@ import {
   COLLAR_COLOURS,
   REFERRAL_SOURCES,
 } from "@/lib/preorderData";
-import { submitOrder, confirmPayment } from "@/lib/api";
+import { submitOrder} from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -191,40 +191,21 @@ export default function PreorderModal({
             ondismiss: () => reject(new Error("cancelled")),
           },
 
-         handler: async (response: any) => {
-  try {
-    console.log("========== PAYMENT DEBUG ==========");
-    console.log("Submission ID:", submissionId);
-    console.log("Razorpay Payment ID:", response.razorpay_payment_id);
-    console.log("Razorpay Order ID:", response.razorpay_order_id);
-    console.log("Razorpay Signature:", response.razorpay_signature);
-    console.log("Full Razorpay Response:", response);
-    console.log("===================================");
+        handler: async (response: any) => {
+  console.log("Payment successful on frontend:", response);
 
-    setPayState("verifying");
+  setPayState("verifying");
 
-    const confirmation = await confirmPayment({
-      submissionId,
-      razorpay_payment_id: response.razorpay_payment_id,
-      razorpay_order_id: response.razorpay_order_id,
-      razorpay_signature: response.razorpay_signature,
-    });
+  // Let webhook handle backend verification
+  onSuccess({
+    petName: dogsname,
+    ownerName: name,
+    cohortNumber: 0,
+    cohortPosition: 0,
+    referralCode: "",
+  });
 
-    console.log("Backend Confirmation:", confirmation);
-
-    onSuccess({
-      petName: dogsname,
-      ownerName: name,
-      cohortNumber: confirmation.data.cohortNumber,
-      cohortPosition: confirmation.data.cohortPosition,
-      referralCode: confirmation.data.referralCode,
-    });
-
-    resolve();
-  } catch (err) {
-    console.error("HANDLER ERROR:", err);
-    reject(err);
-  }
+  resolve();
 },
         });
 
