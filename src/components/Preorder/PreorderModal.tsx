@@ -191,33 +191,41 @@ export default function PreorderModal({
             ondismiss: () => reject(new Error("cancelled")),
           },
 
-          handler: async (response: any) => {
-            try {
-              // ── STEP 4: Confirm payment ─────────────────
-              setPayState("verifying");
+         handler: async (response: any) => {
+  try {
+    console.log("========== PAYMENT DEBUG ==========");
+    console.log("Submission ID:", submissionId);
+    console.log("Razorpay Payment ID:", response.razorpay_payment_id);
+    console.log("Razorpay Order ID:", response.razorpay_order_id);
+    console.log("Razorpay Signature:", response.razorpay_signature);
+    console.log("Full Razorpay Response:", response);
+    console.log("===================================");
 
-              console.log("Razorpay SUCCESS response:", response);
+    setPayState("verifying");
 
-            const confirmation = await confirmPayment({
-            submissionId,
-  razorpay_payment_id: response.razorpay_payment_id,
-  razorpay_order_id: response.razorpay_order_id,
-  razorpay_signature: response.razorpay_signature, // 🔥 ADD THIS
-});
+    const confirmation = await confirmPayment({
+      submissionId,
+      razorpay_payment_id: response.razorpay_payment_id,
+      razorpay_order_id: response.razorpay_order_id,
+      razorpay_signature: response.razorpay_signature,
+    });
 
-              onSuccess({
-                petName: dogsname,
-                ownerName: name,
-                cohortNumber: confirmation.data.cohortNumber,
-                cohortPosition: confirmation.data.cohortPosition,
-                referralCode: confirmation.data.referralCode,
-              });
+    console.log("Backend Confirmation:", confirmation);
 
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          },
+    onSuccess({
+      petName: dogsname,
+      ownerName: name,
+      cohortNumber: confirmation.data.cohortNumber,
+      cohortPosition: confirmation.data.cohortPosition,
+      referralCode: confirmation.data.referralCode,
+    });
+
+    resolve();
+  } catch (err) {
+    console.error("HANDLER ERROR:", err);
+    reject(err);
+  }
+},
         });
 
         rzp.open();
