@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "https://myperro-website-backend.onrender.com";
+const DEFAULT_BACKEND_URL = "http://3.6.88.55:3000";
 
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
